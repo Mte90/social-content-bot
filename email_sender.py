@@ -132,26 +132,61 @@ class EmailSender:
     def _format_section_html(self, title: str, subtitle: str, suggestions: List[Dict], original_items: List[Dict] = None) -> str:
         posts_html = []
         
+        # Group suggestions by source item (title or URL)
+        grouped = {}
         for suggestion in suggestions:
-            platform = suggestion.get('platform', 'unknown')
-            platform_class = 'twitter' if platform == 'twitter' else 'linkedin'
-            platform_emoji = '🐦' if platform == 'twitter' else '💼'
+            # Get source identifier from suggestion
+            source_title = suggestion.get('source_title', 'Unknown')
+            source_url = suggestion.get('source_url', '')
             
-            hashtags = suggestion.get('hashtags', [])
-            hashtag_str = ' '.join(f'#{tag}' for tag in hashtags)
+            if source_title not in grouped:
+                grouped[source_title] = {
+                    'url': source_url,
+                    'suggestions': []
+                }
+            grouped[source_title]['suggestions'].append(suggestion)
+        
+        # Format each group
+        for source_title, data in grouped.items():
+            source_url = data['url']
+            source_suggestions = data['suggestions']
             
-            post_html = f"""
-            <div class="post-suggestion">
-                <span class="platform-badge {platform_class}">{platform_emoji} {platform.upper()}</span>
-                <div class="post-content">{suggestion.get('content', '')}</div>
-                <div class="hashtags">{hashtag_str}</div>
-                <div class="tip">
-                    <strong>Tone:</strong> {suggestion.get('tone', 'N/A')}<br>
-                    <strong>Tip:</strong> {suggestion.get('engagement_tip', 'N/A')}
+            # Build posts HTML for this source
+            posts_for_source = []
+            for suggestion in source_suggestions:
+                platform = suggestion.get('platform', 'unknown')
+                platform_class = 'twitter' if platform == 'twitter' else 'linkedin'
+                platform_emoji = '🐦' if platform == 'twitter' else '💼'
+                
+                hashtags = suggestion.get('hashtags', [])
+                hashtag_str = ' '.join(f'#{tag}' for tag in hashtags)
+                
+                post_html = f"""
+                <div class="post-suggestion">
+                    <span class="platform-badge {platform_class}">{platform_emoji} {platform.upper()}</span>
+                    <div class="post-content">{suggestion.get('content', '')}</div>
+                    <div class="hashtags">{hashtag_str}</div>
+                    <div class="tip">
+                        <strong>Tone:</strong> {suggestion.get('tone', 'N/A')}<br>
+                        <strong>Tip:</strong> {suggestion.get('engagement_tip', 'N/A')}
+                    </div>
+                </div>
+                """
+                posts_for_source.append(post_html)
+            
+            # Add source title section
+            source_html = f"""
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">
+                    {source_title}
+                </h3>
+                {'<a href="' + source_url + '" style="color: #1a73e8; font-size: 12px;">' + source_url + '</a>' if source_url else ''}
+                <div style="margin-top: 10px;">
+                    {''.join(posts_for_source)}
                 </div>
             </div>
             """
-            posts_html.append(post_html)
+            posts_html.append(source_html)
         
         return f"""
         <div class="section">
@@ -164,20 +199,33 @@ class EmailSender:
     def _format_section_text(self, title: str, suggestions: List[Dict]) -> str:
         lines = [f"{'=' * 50}", f"{title}", f"{'=' * 50}"]
         
-        for i, suggestion in enumerate(suggestions, 1):
-            platform = suggestion.get('platform', 'unknown').upper()
-            content = suggestion.get('content', '')
-            hashtags = ' '.join(f'#{tag}' for tag in suggestion.get('hashtags', []))
-            tone = suggestion.get('tone', 'N/A')
-            tip = suggestion.get('engagement_tip', 'N/A')
+        # Group suggestions by source
+        grouped = {}
+        for suggestion in suggestions:
+            source_title = suggestion.get('source_title', 'Unknown')
+            if source_title not in grouped:
+                grouped[source_title] = []
+            grouped[source_title].append(suggestion)
+        
+        # Format each group
+        for source_title, source_suggestions in grouped.items():
+            lines.extend([f"\n--- Source: {source_title} ---"])
             
-            lines.extend([
-                f"\n--- {platform} Post #{i} ---",
-                content,
-                f"\n{hashtags}",
-                f"\nTone: {tone}",
-                f"Tip: {tip}",
-            ])
+            for i, suggestion in enumerate(source_suggestions, 1):
+                platform = suggestion.get('platform', 'unknown').upper()
+                content = suggestion.get('content', '')
+                hashtags = ' '.join(f'#{tag}' for tag in suggestion.get('hashtags', []))
+                tone = suggestion.get('tone', 'N/A')
+                tip = suggestion.get('engagement_tip', 'N/A')
+                
+                lines.extend([
+                    f"\n{platform} Post #{i}",
+                    content,
+                    f"\n{hashtags}",
+                    f"\nTone: {tone}",
+                    f"Tip: {tip}",
+                    "---",
+                ])
         
         return '\n'.join(lines)
     

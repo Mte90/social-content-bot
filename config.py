@@ -140,7 +140,10 @@ class BotConfig:
     # Content limits
     reddit_limit: int = DEFAULT_REDDIT_UPVOTE_LIMIT
     wordpress_days: int = DEFAULT_WORDPRESS_DAYS
-    posts_per_platform: int = DEFAULT_POSTS_PER_PLATFORM
+    wordpress_limit: int = DEFAULT_WORDPRESS_POST_LIMIT
+    posts_per_platform: int = DEFAULT_POSTS_PER_PLATFORM  # Legacy, kept for backward compatibility
+    twitter_alternatives: int = DEFAULT_POSTS_PER_PLATFORM
+    linkedin_alternatives: int = DEFAULT_POSTS_PER_PLATFORM
     language: str = DEFAULT_LANGUAGE
 
     # Execution options
@@ -220,6 +223,13 @@ class Config:
         config.bot.wordpress_limit = int(os.getenv("WORDPRESS_POST_LIMIT", DEFAULT_WORDPRESS_POST_LIMIT))
         config.bot.wordpress_days = int(os.getenv("WORDPRESS_DAYS", DEFAULT_WORDPRESS_DAYS))
         config.bot.posts_per_platform = int(os.getenv("POSTS_PER_PLATFORM", DEFAULT_POSTS_PER_PLATFORM))
+        # Platform-specific alternatives (takes precedence over posts_per_platform if set)
+        twitter_alt = os.getenv("TWITTER_ALTERNATIVES")
+        linkedin_alt = os.getenv("LINKEDIN_ALTERNATIVES")
+        if twitter_alt:
+            config.bot.twitter_alternatives = int(twitter_alt)
+        if linkedin_alt:
+            config.bot.linkedin_alternatives = int(linkedin_alt)
         config.bot.language = os.getenv("CONTENT_LANGUAGE", DEFAULT_LANGUAGE)
         config.bot.log_level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
         config.bot.log_file = os.getenv("LOG_FILE", DEFAULT_LOG_FILE)

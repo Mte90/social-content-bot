@@ -101,6 +101,12 @@ class SocialContentBot:
     async def generate_suggestions_async(self) -> Dict[str, List[SocialPostSuggestion]]:
         console.print("\n[bold blue]━━━ Generating Content Suggestions ━━━[/bold blue]")
         
+        # Build platform-specific counts dict from config
+        platform_counts = {
+            SocialPlatform.TWITTER: self.config.bot.twitter_alternatives,
+            SocialPlatform.LINKEDIN: self.config.bot.linkedin_alternatives,
+        }
+        
         if self.reddit_upvotes:
             console.print(f"\n[cyan]Generating suggestions for {len(self.reddit_upvotes)} Reddit upvotes...[/cyan]")
             
@@ -112,7 +118,7 @@ class SocialContentBot:
                     tasks.append(
                         self.content_generator.generate_from_reddit_upvote_async(
                             upvote.to_dict(),
-                            posts_per_platform=self.config.bot.posts_per_platform
+                            posts_per_platform=self.config.bot.twitter_alternatives,  # Reddit only generates Twitter posts
                         )
                     )                
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -138,7 +144,7 @@ class SocialContentBot:
                     tasks.append(
                         self.content_generator.generate_from_wordpress_post_async(
                             post.to_dict(),
-                            posts_per_platform=self.config.bot.posts_per_platform
+                            posts_per_platform=self.config.bot.linkedin_alternatives,  # WordPress only generates LinkedIn posts
                         )
                     )                
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -174,7 +180,7 @@ class SocialContentBot:
                     try:
                         suggestions = self.content_generator.generate_from_reddit_upvote(
                             upvote.to_dict(),
-                            posts_per_platform=self.config.bot.posts_per_platform,
+                            posts_per_platform=self.config.bot.twitter_alternatives,
                         )
                         self.suggestions['reddit'].extend(suggestions)
                     except Exception as e:
@@ -193,7 +199,7 @@ class SocialContentBot:
                     try:
                         suggestions = self.content_generator.generate_from_wordpress_post(
                             post.to_dict(),
-                            posts_per_platform=self.config.bot.posts_per_platform,
+                            posts_per_platform=self.config.bot.linkedin_alternatives,
                         )
                         self.suggestions['wordpress'].extend(suggestions)
                     except Exception as e:
@@ -500,7 +506,10 @@ Examples:
     config = get_config()
     
     config.bot.reddit_limit = args.reddit_limit or config.bot.reddit_limit
-    config.bot.posts_per_platform = args.posts_per_item or config.bot.posts_per_platform
+    if args.posts_per_item is not None:
+        # CLI arg overrides env vars for both platforms
+        config.bot.twitter_alternatives = args.posts_per_item
+        config.bot.linkedin_alternatives = args.posts_per_item
     config.bot.language = args.language or config.bot.language
     config.bot.dry_run = args.dry_run or config.bot.dry_run
     

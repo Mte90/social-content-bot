@@ -29,6 +29,8 @@ class SocialPostSuggestion:
     hashtags: List[str]
     tone: str
     engagement_tip: str
+    source_title: str = ""
+    source_url: str = ""
     
     def to_dict(self) -> Dict:
         return {
@@ -37,6 +39,8 @@ class SocialPostSuggestion:
             'hashtags': self.hashtags,
             'tone': self.tone,
             'engagement_tip': self.engagement_tip,
+            'source_title': self.source_title,
+            'source_url': self.source_url,
         }
     
     def format_for_display(self) -> str:
@@ -197,17 +201,20 @@ Format your response as JSON:
   ]
 }}"""
 
-    def generate_posts(self, content_item: ContentItem, platforms: List[SocialPlatform] = None, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
+    def generate_posts(self, content_item: ContentItem, platforms: List[SocialPlatform] = None, posts_per_platform: int = 2, platform_counts: Dict[SocialPlatform, int] = None) -> List[SocialPostSuggestion]:
         if platforms is None:
             platforms = [SocialPlatform.TWITTER, SocialPlatform.LINKEDIN]
         
         suggestions = []
         
         for platform in platforms:
-            system_prompt = self.TWITTER_SYSTEM_PROMPT if platform == SocialPlatform.TWITTER else self.LINKEDIN_SYSTEM_PROMPT
-            user_prompt = self._build_user_prompt(content_item, posts_per_platform)
+            # Determine count for this platform: platform_counts > posts_per_platform
+            count = platform_counts.get(platform, posts_per_platform) if platform_counts else posts_per_platform
             
-            console.print(f"[dim]Generating {posts_per_platform} {platform.value} post variations...[/dim]")
+            system_prompt = self.TWITTER_SYSTEM_PROMPT if platform == SocialPlatform.TWITTER else self.LINKEDIN_SYSTEM_PROMPT
+            user_prompt = self._build_user_prompt(content_item, count)
+            
+            console.print(f"[dim]Generating {count} {platform.value} post variations...[/dim]")
             
             try:
                 response = self._call_ai_api(system_prompt, user_prompt)
@@ -240,6 +247,8 @@ Format your response as JSON:
                         hashtags=post_data.get('hashtags', []),
                         tone=post_data.get('tone', 'professional'),
                         engagement_tip=post_data.get('engagement_tip', ''),
+                        source_title=content_item.title,
+                        source_url=content_item.url,
                     )
                     suggestions.append(suggestion)
                     
@@ -331,6 +340,8 @@ Format your response as JSON:
                         hashtags=post_data.get('hashtags', []),
                         tone=post_data.get('tone', 'professional'),
                         engagement_tip=post_data.get('engagement_tip', ''),
+                        source_title=content_item.title,
+                        source_url=content_item.url,
                     )
                     suggestions.append(suggestion)
             except json.JSONDecodeError as e:
