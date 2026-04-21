@@ -39,9 +39,11 @@ class SocialContentBot:
         
         self.reddit_upvotes: List[RedditUpvote] = []
         self.wordpress_posts: List[WordPressPost] = []
+        self.twitter_tweets: List[Dict] = []
         self.suggestions: Dict[str, List[SocialPostSuggestion]] = {
             'reddit': [],
             'wordpress': [],
+            'twitter': [],
         }
     
     @property
@@ -96,6 +98,26 @@ class SocialContentBot:
         except Exception as e:
             self.logger.error(f"Error fetching WordPress posts: {e}")
             console.print(f"[red]Error fetching WordPress posts: {e}[/red]")
+            return []
+
+    def fetch_twitter_tweets(self) -> List[Dict]:
+        console.print("\n[bold blue]━━━ Fetching My Recent Tweets ━━━[/bold blue]")
+        
+        if not self.twitter_client:
+            console.print("[yellow]Twitter not configured, skipping[/yellow]")
+            return []
+        
+        try:
+            tweets = self.twitter_client.get_profile_tweets(
+                handle=self.config.twitter.username,
+                limit=self.config.bot.twitter_alternatives * 3
+            )
+            self.twitter_tweets = tweets
+            console.print(f"[green]✓[/green] Fetched {len(tweets)} recent tweets")
+            return tweets
+        except Exception as e:
+            self.logger.error(f"Error fetching tweets: {e}")
+            console.print(f"[red]Error fetching tweets: {e}[/red]")
             return []
 
     async def generate_suggestions_async(self) -> Dict[str, List[SocialPostSuggestion]]:
@@ -159,11 +181,38 @@ class SocialContentBot:
                     
                     progress.advance(task)
         
-        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress'])
+        if self.twitter_tweets:
+            console.print(f"\n[cyan]Generating suggestions for {len(self.twitter_tweets)} tweets...[/cyan]")
+            
+            with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console) as progress:
+                task = progress.add_task("Processing Tweets...", total=len(self.twitter_tweets))
+                
+                tasks = []
+                for tweet in self.twitter_tweets:
+                    tasks.append(
+                        self.content_generator.generate_from_tweet_async(
+                            tweet,
+                            posts_per_platform=self.config.bot.linkedin_alternatives,
+                        )
+                    )
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for i, result in enumerate(results):
+                    tweet = self.twitter_tweets[i]
+                    if isinstance(result, Exception):
+                        self.logger.warning(f"Could not generate suggestions for tweet: {result}")
+                        console.print(f"[yellow]Warning: Could not generate suggestions for tweet: {result}[/yellow]")
+                    else:
+                        self.suggestions['twitter'].extend(result)
+                    
+                    progress.advance(task)
+        
+        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress']) + len(self.suggestions['twitter'])
         self.logger.info(f"Generated {total_suggestions} total suggestions")
         console.print(f"\n[green]✓ Generated {total_suggestions} total suggestions[/green]")
         console.print(f"   - From Reddit: {len(self.suggestions['reddit'])}")
         console.print(f"   - From WordPress: {len(self.suggestions['wordpress'])}")
+        console.print(f"   - From My Tweets: {len(self.suggestions['twitter'])}")
         
         return self.suggestions
 
@@ -208,11 +257,31 @@ class SocialContentBot:
                     
                     progress.advance(task)
         
-        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress'])
+        if self.twitter_tweets:
+            console.print(f"\n[cyan]Generating suggestions for {len(self.twitter_tweets)} tweets...[/cyan]")
+            
+            with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console) as progress:
+                task = progress.add_task("Processing Tweets...", total=len(self.twitter_tweets))
+                
+                for tweet in self.twitter_tweets:
+                    try:
+                        suggestions = self.content_generator.generate_from_tweet(
+                            tweet,
+                            posts_per_platform=self.config.bot.linkedin_alternatives,
+                        )
+                        self.suggestions['twitter'].extend(suggestions)
+                    except Exception as e:
+                        self.logger.warning(f"Could not generate suggestions for tweet: {e}")
+                        console.print(f"[yellow]Warning: Could not generate suggestions for tweet: {e}[/yellow]")
+                    
+                    progress.advance(task)
+        
+        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress']) + len(self.suggestions['twitter'])
         self.logger.info(f"Generated {total_suggestions} total suggestions")
         console.print(f"\n[green]✓ Generated {total_suggestions} total suggestions[/green]")
         console.print(f"   - From Reddit: {len(self.suggestions['reddit'])}")
         console.print(f"   - From WordPress: {len(self.suggestions['wordpress'])}")
+        console.print(f"   - From My Tweets: {len(self.suggestions['twitter'])}")
         
         return self.suggestions
 
@@ -414,7 +483,10 @@ class SocialContentBot:
         if not skip_wordpress and self.config.wordpress.is_configured:
             self.fetch_wordpress_posts()
         
-        if not self.reddit_upvotes and not self.wordpress_posts:
+        if self.config.twitter.is_configured:
+            self.fetch_twitter_tweets()
+        
+        if not self.reddit_upvotes and not self.wordpress_posts and not self.twitter_tweets:
             console.print("\n[yellow]No content found to process.[/yellow]")
             self.logger.warning("No content found to process")
             return False
@@ -427,7 +499,7 @@ class SocialContentBot:
         self.display_suggestions()
         
         # Don't send email if no suggestions were generated
-        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress'])
+        total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress']) + len(self.suggestions['twitter'])
         if total_suggestions == 0:
             console.print("\n[yellow]⚠[/yellow] No suggestions generated. Skipping email send.")
             self.logger.warning("No suggestions generated. Skipping email.")
@@ -438,7 +510,8 @@ class SocialContentBot:
             f"[bold green]✓ Workflow Complete![/bold green]\n\n"
             f"Reddit upvotes: {len(self.reddit_upvotes)}\n"
             f"WordPress posts: {len(self.wordpress_posts)}\n"
-            f"Total suggestions: {len(self.suggestions['reddit']) + len(self.suggestions['wordpress'])}",
+            f"My tweets: {len(self.twitter_tweets)}\n"
+            f"Total suggestions: {total_suggestions}",
             border_style="green",
         ))
         

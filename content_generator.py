@@ -169,9 +169,18 @@ Rules:
             raise
 
     def _build_user_prompt(self, content_item: ContentItem, posts_per_platform: int) -> str:
+        if content_item.source_type == 'my_blog':
+            source_label = "MY OWN BLOG POST"
+        elif content_item.source_type == 'my_tweets':
+            source_label = "MY OWN RECENT TWEETS"
+        elif content_item.source_type == 'reddit':
+            source_label = "MY REDDIT UPVOTED POSTS (posts I upvoted on Reddit)"
+        else:
+            source_label = content_item.source_type.upper()
+        
         return f"""Create {posts_per_platform} social media post variations based on this content:
 
-Source: {content_item.source_type}
+Source: {source_label}
 Title: {content_item.title}
 URL: {content_item.url}
 
@@ -280,7 +289,7 @@ Format your response as JSON:
 
     def generate_from_wordpress_post(self, post_data: Dict, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
         content_item = ContentItem(
-            source_type='wordpress',
+            source_type='my_blog',
             title=post_data.get('title', ''),
             url=post_data.get('url', ''),
             summary=post_data.get('excerpt', '') or post_data.get('content', '')[:500],
@@ -369,7 +378,7 @@ Format your response as JSON:
 
     async def generate_from_wordpress_post_async(self, post_data: Dict, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
         content_item = ContentItem(
-            source_type='wordpress',
+            source_type='my_blog',
             title=post_data.get('title', ''),
             url=post_data.get('url', ''),
             summary=post_data.get('excerpt', '') or post_data.get('content', '')[:500],
@@ -382,6 +391,38 @@ Format your response as JSON:
         )
         
         return await self.generate_posts_async(content_item, posts_per_platform=posts_per_platform)
+
+    def generate_from_tweet(self, tweet_data: Dict, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
+        """Generate LinkedIn posts from a tweet."""
+        content_item = ContentItem(
+            source_type='my_tweets',
+            title=f"Tweet: {tweet_data.get('text', '')[:80]}",
+            url=tweet_data.get('url', ''),
+            summary=tweet_data.get('text', ''),
+            metadata={
+                'likes': tweet_data.get('likes', 0),
+                'retweets': tweet_data.get('retweets', 0),
+                'replies': tweet_data.get('replies', 0),
+            }
+        )
+        
+        return self.generate_posts(content_item, platforms=[SocialPlatform.LINKEDIN], posts_per_platform=posts_per_platform)
+
+    async def generate_from_tweet_async(self, tweet_data: Dict, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
+        """Generate LinkedIn posts from a tweet (async)."""
+        content_item = ContentItem(
+            source_type='my_tweets',
+            title=f"Tweet: {tweet_data.get('text', '')[:80]}",
+            url=tweet_data.get('url', ''),
+            summary=tweet_data.get('text', ''),
+            metadata={
+                'likes': tweet_data.get('likes', 0),
+                'retweets': tweet_data.get('retweets', 0),
+                'replies': tweet_data.get('replies', 0),
+            }
+        )
+        
+        return await self.generate_posts_async(content_item, platforms=[SocialPlatform.LINKEDIN], posts_per_platform=posts_per_platform)
 
 
 def display_suggestions(suggestions: List[SocialPostSuggestion]):

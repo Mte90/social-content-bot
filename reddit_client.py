@@ -70,8 +70,9 @@ class RedditClient:
         console.print(f"[green]✓[/green] Reddit client initialized for user: {self.username}")
 
     @retry_with_backoff(exceptions=(Exception,))
-    def get_upvoted_posts(self, limit: int = 10) -> List[RedditUpvote]:
+    def get_upvoted_posts(self, limit: int = 10, max_age_days: int = 14) -> List[RedditUpvote]:
         upvotes = []
+        skipped_old = 0
         
         console.print(f"\n[bold blue]Fetching {limit} upvoted posts from Reddit...[/bold blue]")
         
@@ -81,7 +82,17 @@ class RedditClient:
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
                 task = progress.add_task("Downloading upvotes...", total=None)
                 
-                for i, submission in enumerate(redditor.upvoted(limit=limit)):
+                for i, submission in enumerate(redditor.upvoted(limit=limit * 3)):
+                    if len(upvotes) >= limit:
+                        break
+                    
+                    created_at = datetime.fromtimestamp(submission.created_utc)
+                    age_days = (datetime.now() - created_at).days
+                    
+                    if age_days > max_age_days:
+                        skipped_old += 1
+                        continue
+                    
                     upvote = RedditUpvote(
                         id=submission.id,
                         title=submission.title,
@@ -98,8 +109,10 @@ class RedditClient:
                     upvotes.append(upvote)
                     progress.update(task, description=f"Fetched {i+1}/{limit} upvotes")
             
-            self.logger.info(f"Successfully fetched {len(upvotes)} upvoted posts")
+            self.logger.info(f"Successfully fetched {len(upvotes)} upvoted posts, skipped {skipped_old} older than {max_age_days} days")
             console.print(f"[green]✓[/green] Successfully fetched {len(upvotes)} upvoted posts")
+            if skipped_old > 0:
+                console.print(f"[dim]Skipped {skipped_old} posts older than {max_age_days} days[/dim]")
             
         except Exception as e:
             self.logger.error(f"Error fetching upvoted posts: {e}")
