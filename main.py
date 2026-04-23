@@ -294,16 +294,20 @@ class SocialContentBot:
         
         reddit_suggestions = [s.to_dict() for s in self.suggestions['reddit']]
         wordpress_suggestions = [s.to_dict() for s in self.suggestions['wordpress']]
+        twitter_suggestions = [s.to_dict() for s in self.suggestions['twitter']]
         reddit_items = [u.to_dict() for u in self.reddit_upvotes]
         wordpress_items = [p.to_dict() for p in self.wordpress_posts]
+        twitter_items = [t for t in self.twitter_tweets]
         
         try:
             return self.email_sender.send_digest(
                 to_email=to_email,
                 reddit_suggestions=reddit_suggestions,
                 wordpress_suggestions=wordpress_suggestions,
+                twitter_suggestions=twitter_suggestions,
                 reddit_items=reddit_items,
                 wordpress_items=wordpress_items,
+                twitter_items=twitter_items,
             )
         except Exception as e:
             self.logger.error(f"Error sending email: {e}")
@@ -321,6 +325,11 @@ class SocialContentBot:
         if self.suggestions['wordpress']:
             console.print("\n[bold cyan]From WordPress Posts:[/bold cyan]")
             for suggestion in self.suggestions['wordpress']:
+                console.print(suggestion.format_for_display())
+        
+        if self.suggestions['twitter']:
+            console.print("\n[bold cyan]From My Tweets:[/bold cyan]")
+            for suggestion in self.suggestions['twitter']:
                 console.print(suggestion.format_for_display())
 
     def test_connections(self):
@@ -456,9 +465,11 @@ class SocialContentBot:
             'timestamp': datetime.now().isoformat(),
             'reddit_upvotes': [u.to_dict() for u in self.reddit_upvotes],
             'wordpress_posts': [p.to_dict() for p in self.wordpress_posts],
+            'twitter_tweets': self.twitter_tweets,
             'suggestions': {
                 'reddit': [s.to_dict() for s in self.suggestions['reddit']],
                 'wordpress': [s.to_dict() for s in self.suggestions['wordpress']],
+                'twitter': [s.to_dict() for s in self.suggestions['twitter']],
             },
         }
         

@@ -103,7 +103,7 @@ class EmailSender:
         console.print(f"[green]✓[/green] Email sent to {to_email}")
         return True
     
-    def format_digest_email(self, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None) -> tuple:
+    def format_digest_email(self, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None) -> tuple:
         content_parts = []
         text_parts = []
         
@@ -116,6 +116,11 @@ class EmailSender:
             wp_html = self._format_section_html("Blog Posts", "✍️ Content ideas from your WordPress blog", wordpress_suggestions, wordpress_items)
             content_parts.append(wp_html)
             text_parts.append(self._format_section_text("Blog Posts", wordpress_suggestions))
+        
+        if twitter_suggestions:
+            twitter_html = self._format_section_html("Recent Tweets", "🐦 Content ideas from your recent tweets", twitter_suggestions, twitter_items)
+            content_parts.append(twitter_html)
+            text_parts.append(self._format_section_text("Recent Tweets", twitter_suggestions))
         
         # Escape curly braces in content to avoid format() errors
         content_html_escaped = ''.join(content_parts).replace('{', '{{').replace('}', '}}') if content_parts else '<p>No content suggestions this time.</p>'
@@ -229,7 +234,7 @@ class EmailSender:
         
         return '\n'.join(lines)
     
-    def send_digest(self, to_email: str = None, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None) -> bool:
+    def send_digest(self, to_email: str = None, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None) -> bool:
         cfg = get_config()
         to_email = to_email or cfg.email.email_to
         
@@ -239,8 +244,10 @@ class EmailSender:
         html_content, text_content = self.format_digest_email(
             reddit_suggestions=reddit_suggestions,
             wordpress_suggestions=wordpress_suggestions,
+            twitter_suggestions=twitter_suggestions,
             reddit_items=reddit_items,
             wordpress_items=wordpress_items,
+            twitter_items=twitter_items,
         )
         
         subject = f"📱 Social Media Content Digest - {datetime.now().strftime('%Y-%m-%d')}"

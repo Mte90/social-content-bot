@@ -104,7 +104,7 @@ Output format: {"posts": [{"content": "string with link", "hashtags": ["tag1", "
 Rules:
 - Start with a compelling hook (first line is crucial)
 - Use short paragraphs (1-2 sentences each)
-- Include personal insights or takeaways
+- Present the content objectively without adding personal opinions
 - Add a call-to-action or question for engagement
 - Use 3-5 relevant hashtags at the end (without # symbol in the array)
 - ALWAYS include the source URL in the post content
