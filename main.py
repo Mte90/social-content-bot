@@ -80,7 +80,10 @@ class SocialContentBot:
         console.print("\n[bold blue]━━━ Fetching Reddit Upvotes ━━━[/bold blue]")
         
         try:
-            self.reddit_upvotes = self.reddit_client.get_upvoted_posts(limit=self.config.bot.reddit_limit)
+            self.reddit_upvotes = self.reddit_client.get_upvoted_posts(
+                limit=self.config.bot.reddit_limit,
+                max_age_days=self.config.bot.reddit_upvote_days
+            )
             return self.reddit_upvotes
         except Exception as e:
             self.logger.error(f"Error fetching Reddit upvotes: {e}")
@@ -110,10 +113,11 @@ class SocialContentBot:
         try:
             tweets = self.twitter_client.get_profile_tweets(
                 handle=self.config.twitter.username,
-                limit=self.config.bot.twitter_alternatives * 3
+                limit=self.config.bot.twitter_alternatives * 3,
+                max_age_days=self.config.bot.twitter_tweets_days,
             )
             self.twitter_tweets = tweets
-            console.print(f"[green]✓[/green] Fetched {len(tweets)} recent tweets")
+            console.print(f"[green]✓[/green] Fetched {len(tweets)} recent tweets (max {self.config.bot.twitter_tweets_days} days old)")
             return tweets
         except Exception as e:
             self.logger.error(f"Error fetching tweets: {e}")

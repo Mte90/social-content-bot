@@ -11,9 +11,11 @@ from pathlib import Path
 
 # Content limits
 DEFAULT_REDDIT_UPVOTE_LIMIT = 10
+DEFAULT_REDDIT_UPVOTE_DAYS = 14
 DEFAULT_WORDPRESS_DAYS = 7
 DEFAULT_WORDPRESS_POST_LIMIT = 10
 DEFAULT_POSTS_PER_PLATFORM = 3
+DEFAULT_TWITTER_TWEETS_DAYS = 7
 
 # API settings
 DEFAULT_OPENAI_MODEL = "gpt-4"
@@ -139,6 +141,7 @@ class TwitterConfig:
 class BotConfig:
     # Content limits
     reddit_limit: int = DEFAULT_REDDIT_UPVOTE_LIMIT
+    reddit_upvote_days: int = DEFAULT_REDDIT_UPVOTE_DAYS
     wordpress_days: int = DEFAULT_WORDPRESS_DAYS
     wordpress_limit: int = DEFAULT_WORDPRESS_POST_LIMIT
     posts_per_platform: int = DEFAULT_POSTS_PER_PLATFORM  # Legacy, kept for backward compatibility
@@ -165,6 +168,9 @@ class BotConfig:
     log_file: str = DEFAULT_LOG_FILE
     log_max_bytes: int = DEFAULT_LOG_MAX_BYTES
     log_backup_count: int = DEFAULT_LOG_BACKUP_COUNT
+    twitter_prompt: str = ""
+    linkedin_prompt: str = ""
+    twitter_tweets_days: int = DEFAULT_TWITTER_TWEETS_DAYS
 
 
 @dataclass
@@ -220,8 +226,10 @@ class Config:
 
         # Bot configuration from environment
         config.bot.reddit_limit = int(os.getenv("REDDIT_UPVOTE_LIMIT", DEFAULT_REDDIT_UPVOTE_LIMIT))
+        config.bot.reddit_upvote_days = int(os.getenv("REDDIT_UPVOTE_DAYS", DEFAULT_REDDIT_UPVOTE_DAYS))
         config.bot.wordpress_limit = int(os.getenv("WORDPRESS_POST_LIMIT", DEFAULT_WORDPRESS_POST_LIMIT))
         config.bot.wordpress_days = int(os.getenv("WORDPRESS_DAYS", DEFAULT_WORDPRESS_DAYS))
+        config.bot.twitter_tweets_days = int(os.getenv("TWITTER_TWEETS_DAYS", DEFAULT_TWITTER_TWEETS_DAYS))
         config.bot.posts_per_platform = int(os.getenv("POSTS_PER_PLATFORM", DEFAULT_POSTS_PER_PLATFORM))
         # Platform-specific alternatives (takes precedence over posts_per_platform if set)
         twitter_alt = os.getenv("TWITTER_ALTERNATIVES")
@@ -233,6 +241,8 @@ class Config:
         config.bot.language = os.getenv("CONTENT_LANGUAGE", DEFAULT_LANGUAGE)
         config.bot.log_level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
         config.bot.log_file = os.getenv("LOG_FILE", DEFAULT_LOG_FILE)
+        config.bot.twitter_prompt = os.getenv("TWITTER_SYSTEM_PROMPT", "")
+        config.bot.linkedin_prompt = os.getenv("LINKEDIN_SYSTEM_PROMPT", "")
         
         # Performance settings from environment
         config.bot.max_concurrent_requests = int(os.getenv("MAX_CONCURRENT_REQUESTS", DEFAULT_MAX_CONCURRENT_REQUESTS))

@@ -123,6 +123,10 @@ Rules:
         self.max_concurrent = cfg.bot.max_concurrent_requests
         self.logger = get_logger()
         
+        # Env var prompts override hardcoded defaults if set
+        self.twitter_prompt = cfg.bot.twitter_prompt or self.TWITTER_SYSTEM_PROMPT
+        self.linkedin_prompt = cfg.bot.linkedin_prompt or self.LINKEDIN_SYSTEM_PROMPT
+        
         if not self.api_key:
             console.print("[yellow]⚠[/yellow] No API key configured. Set OPENAI_API_KEY environment variable.")
         else:

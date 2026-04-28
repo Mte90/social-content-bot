@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from rich.console import Console
 
@@ -126,17 +127,37 @@ class TwitterClient:
             console.print(f"[red]✗[/red] Error fetching following: {e}")
             return []
 
-    def get_profile_tweets(self, handle: str, limit: int = 50) -> List[Dict]:
-        """Get tweets from a user's profile."""
+    def get_profile_tweets(self, handle: str, limit: int = 50, max_age_days: int = 7) -> List[Dict]:
+        """Get tweets from a user's profile, filtered by age."""
         try:
-            self.logger.info(f"Fetching tweets for: {handle}")
+            self.logger.info(f"Fetching tweets for: {handle} (max age: {max_age_days} days)")
             tweets = self.scweet.get_profile_tweets(
                 handle=handle,
                 login=True,
                 stay_logged_in=True,
                 sleep=1,
             )
-            return tweets[:limit] if tweets else []
+            
+            # Filter tweets by age
+            if tweets:
+                cutoff_date = datetime.now() - timedelta(days=max_age_days)
+                filtered_tweets = []
+                for tweet in tweets[:limit]:
+                    # Check if tweet has created_at timestamp
+                    if 'created_at' in tweet:
+                        try:
+                            tweet_date = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+                            if tweet_date >= cutoff_date:
+                                filtered_tweets.append(tweet)
+                        except (ValueError, TypeError):
+                            # If date parsing fails, include the tweet anyway
+                            filtered_tweets.append(tweet)
+                    else:
+                        # If no date field, include the tweet
+                        filtered_tweets.append(tweet)
+                
+                return filtered_tweets
+            return []
         except Exception as e:
             self.logger.error(f"Error fetching tweets: {e}")
             console.print(f"[red]✗[/red] Error fetching tweets: {e}")
