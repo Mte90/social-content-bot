@@ -128,6 +128,7 @@ class TwitterConfig:
     
     Note: ct0 is optional - scweet auto-bootstraps it from auth_token
     """
+    username: str = ""
     auth_token: str = ""           # Twitter auth_token from browser cookies (REQUIRED for single account)
     cookies_file: str = ""         # Path to cookies.json for multiple accounts (alternative to auth_token)
     proxy: str = ""                # Optional proxy for rate limiting avoidance
@@ -220,6 +221,7 @@ class Config:
         config.email.email_to = os.getenv("EMAIL_TO", "")
 
         # Twitter configuration (scweet uses auth_token from browser cookies)
+        config.twitter.username = os.getenv("TWITTER_USERNAME", "")
         config.twitter.auth_token = os.getenv("TWITTER_AUTH_TOKEN", "")
         config.twitter.cookies_file = os.getenv("TWITTER_COOKIES_FILE", "")
         config.twitter.proxy = os.getenv("TWITTER_PROXY", "")

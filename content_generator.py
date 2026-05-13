@@ -77,7 +77,7 @@ CRITICAL INSTRUCTIONS:
 - Use double quotes for all strings (escape internal quotes properly)
 - Do NOT use code blocks (no ```json or ```)
 - Return empty array if you cannot generate posts
-- EACH POST MUST INCLUDE THE SOURCE URL/LINK
+- EACH POST MUST INCLUDE THE EXTERNAL SOURCE URL (the link you found, NOT links inside the article)
 
 Output format: {"posts": [{"content": "string with link", "hashtags": ["tag1", "tag2"], "tone": "string", "engagement_tip": "string"}]}
 
@@ -86,8 +86,10 @@ Rules:
 - Use a conversational, authentic tone
 - Include a clear hook or value proposition
 - Add 2-3 relevant hashtags (without # symbol in the array)
-- ALWAYS include the source URL in the tweet content
-- Avoid clickbait or misleading content"""
+- ALWAYS include the EXTERNAL SOURCE URL at the end of the tweet (the original article/blog URL you shared)
+- DO NOT include any links mentioned within the article content
+- Avoid clickbait or misleading content
+- If multiple external sources, use the PRIMARY source (first/authoritative one)"""
 
     LINKEDIN_SYSTEM_PROMPT = """You are an expert LinkedIn content creator.
 Create professional, engaging LinkedIn posts that build thought leadership and drive meaningful engagement.
@@ -97,7 +99,7 @@ CRITICAL INSTRUCTIONS:
 - Use double quotes for all strings (escape internal quotes properly)
 - Do NOT use code blocks (no ```json or ```)
 - Return empty array if you cannot generate posts
-- EACH POST MUST INCLUDE THE SOURCE URL/LINK
+- EACH POST MUST INCLUDE THE EXTERNAL SOURCE URL (the link you found, NOT links inside the article)
 
 Output format: {"posts": [{"content": "string with link", "hashtags": ["tag1", "tag2"], "tone": "string", "engagement_tip": "string"}]}
 
@@ -107,9 +109,11 @@ Rules:
 - Present the content objectively without adding personal opinions
 - Add a call-to-action or question for engagement
 - Use 3-5 relevant hashtags at the end (without # symbol in the array)
-- ALWAYS include the source URL in the post content
+- ALWAYS include the EXTERNAL SOURCE URL at the end of the post (the original article/blog URL you shared)
+- DO NOT include any links mentioned within the article content
 - Keep it authentic and professional
-- Aim for 150-300 words for optimal engagement"""
+- Aim for 150-300 words for optimal engagement
+- If multiple external sources, use the PRIMARY source (first/authoritative one)"""
 
     def __init__(self, api_key: str = None, api_base: str = None, model: str = None, language: str = None):
         cfg = get_config()
