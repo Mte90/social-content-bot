@@ -107,7 +107,7 @@ Rules:
 - Start with a compelling hook (first line is crucial)
 - Use short paragraphs (1-2 sentences each)
 - Present the content objectively without adding personal opinions
-- Add a call-to-action or question for engagement
+- NEVER write as if you are the author or creator of the linked content — you are someone sharing/recommending it
 - Use 3-5 relevant hashtags at the end (without # symbol in the array)
 - ALWAYS include the EXTERNAL SOURCE URL at the end of the post (the original article/blog URL you shared)
 - DO NOT include any links mentioned within the article content
@@ -228,7 +228,7 @@ Format your response as JSON:
             # Determine count for this platform: platform_counts > posts_per_platform
             count = platform_counts.get(platform, posts_per_platform) if platform_counts else posts_per_platform
             
-            system_prompt = self.TWITTER_SYSTEM_PROMPT if platform == SocialPlatform.TWITTER else self.LINKEDIN_SYSTEM_PROMPT
+            system_prompt = self.twitter_prompt if platform == SocialPlatform.TWITTER else self.linkedin_prompt
             user_prompt = self._build_user_prompt(content_item, count)
             
             console.print(f"[dim]Generating {count} {platform.value} post variations...[/dim]")
@@ -319,7 +319,7 @@ Format your response as JSON:
         tasks = []
         
         for platform in platforms:
-            system_prompt = self.TWITTER_SYSTEM_PROMPT if platform == SocialPlatform.TWITTER else self.LINKEDIN_SYSTEM_PROMPT
+            system_prompt = self.twitter_prompt if platform == SocialPlatform.TWITTER else self.linkedin_prompt
             user_prompt = self._build_user_prompt(content_item, posts_per_platform)
             
             async def generate_for_platform(p: SocialPlatform, sys_p: str, usr_p: str) -> List[SocialPostSuggestion]:
@@ -415,7 +415,7 @@ Format your response as JSON:
         )
         
         return self.generate_posts(content_item, platforms=[SocialPlatform.LINKEDIN], posts_per_platform=posts_per_platform)
-
+    
     async def generate_from_tweet_async(self, tweet_data: Dict, posts_per_platform: int = 2) -> List[SocialPostSuggestion]:
         """Generate LinkedIn posts from a tweet (async)."""
         content_item = ContentItem(
@@ -431,7 +431,67 @@ Format your response as JSON:
         )
         
         return await self.generate_posts_async(content_item, platforms=[SocialPlatform.LINKEDIN], posts_per_platform=posts_per_platform)
+    
+    def _build_repost_prompt(self, tweets: List[Dict]) -> str:
+        tweets_text = ""
+        for i, tweet in enumerate(tweets, 1):
+            text = tweet.get('text', '')
+            likes = tweet.get('likes', 0)
+            retweets = tweet.get('retweets', 0)
+            replies = tweet.get('replies', 0)
+            tweets_text += f"\nTweet #{i}:\nText: {text}\nLikes: {likes} | Retweets: {retweets} | Replies: {replies}\n---"
+        
+        return f"""Review these recent tweets and identify which ones could be worth reposting in {self.language.upper()}.
 
+Tweets data:
+{tweets_text}
+
+For each tweet worth reposting, explain why (evergreen content, underperformed but valuable, still relevant, etc.).
+Focus on tweets where the content is still timely/valuable regardless of original engagement.
+
+Return your response as valid JSON. No markdown, no code blocks.
+Format: {{
+  "suggestions": [
+    {{
+      "index": 1,
+      "reason": "why this tweet is worth reposting",
+      "text": "the original tweet text"
+    }}
+  ]
+}}"""
+
+    def suggest_reposts(self, tweets: List[Dict]) -> Dict:
+        """Suggest which tweets are worth reposting based on AI analysis."""
+        if not tweets:
+            return {"suggestions": []}
+        
+        system_prompt = """You are a social media strategist. Identify tweets that are worth reposting because they have evergreen content, underperformed but are still valuable, or remain relevant. Return ONLY valid JSON. No markdown, no code blocks, no extra text."""
+        
+        user_prompt = self._build_repost_prompt(tweets)
+        
+        try:
+            response = self._call_ai_api(system_prompt, user_prompt)
+            if not response:
+                return {"suggestions": []}
+            
+            response = response.strip()
+            if response.startswith('```'):
+                response = response.split('\n', 1)[1]
+            if response.endswith('```'):
+                response = response.rsplit('\n', 1)[0]
+            response = response.strip()
+            
+            return json.loads(response)
+        except Exception as e:
+            self.logger.error(f"❌ Error suggesting reposts: {e}")
+            return {"suggestions": []}
+    
+    async def suggest_reposts_async(self, tweets: List[Dict]) -> Dict:
+        """Suggest reposts asynchronously."""
+        if not tweets:
+            return {"suggestions": []}
+        
+        return await asyncio.to_thread(self.suggest_reposts, tweets)
 
 def display_suggestions(suggestions: List[SocialPostSuggestion]):
     for suggestion in suggestions:

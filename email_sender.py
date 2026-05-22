@@ -103,7 +103,7 @@ class EmailSender:
         console.print(f"[green]✓[/green] Email sent to {to_email}")
         return True
     
-    def format_digest_email(self, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None) -> tuple:
+    def format_digest_email(self, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None, repost_suggestions: Dict = None) -> tuple:
         content_parts = []
         text_parts = []
         
@@ -116,6 +116,11 @@ class EmailSender:
             wp_html = self._format_section_html("Blog Posts", "✍️ Content ideas from your WordPress blog", wordpress_suggestions, wordpress_items)
             content_parts.append(wp_html)
             text_parts.append(self._format_section_text("Blog Posts", wordpress_suggestions))
+        
+        if repost_suggestions:
+            repost_html = self._format_repost_html(repost_suggestions)
+            content_parts.append(repost_html)
+            text_parts.append(self._format_repost_text(repost_suggestions))
         
         if twitter_suggestions:
             twitter_html = self._format_section_html("Recent Tweets", "🐦 Content ideas from your recent tweets", twitter_suggestions, twitter_items)
@@ -137,10 +142,43 @@ class EmailSender:
     def _format_section_html(self, title: str, subtitle: str, suggestions: List[Dict], original_items: List[Dict] = None) -> str:
         posts_html = []
         
+        # Show original content (tweets, reddit posts, blog) when available
+        if original_items:
+            for item in original_items:
+                item_text = item.get('text', '')
+                if not item_text:
+                    item_text = item.get('title', item.get('content', ''))
+                item_url = item.get('url', '')
+                
+                # Engagement stats for tweets
+                likes = item.get('likes')
+                retweets = item.get('retweets')
+                replies = item.get('replies')
+                
+                stats_html = ''
+                if any(x is not None for x in [likes, retweets, replies]):
+                    stats_parts = []
+                    if likes is not None:
+                        stats_parts.append(f'❤️ {likes}')
+                    if retweets is not None:
+                        stats_parts.append(f'🔁 {retweets}')
+                    if replies is not None:
+                        stats_parts.append(f'💬 {replies}')
+                    stats_html = f'<div style="font-size: 12px; color: #888; margin: 5px 0;">{" | ".join(stats_parts)}</div>'
+                
+                source_html = f"""
+                <div style="margin-bottom: 25px;">
+                    <div style="background-color: #f0f4f8; border: 1px solid #dde3e9; border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                        <div style="font-size: 14px; margin-bottom: 5px;">{item_text}</div>
+                        {stats_html}
+                        {'<a href="' + item_url + '" style="color: #1a73e8; font-size: 12px;">' + item_url + '</a>' if item_url else ''}
+                    </div>
+                """
+                posts_html.append(source_html)
+        
         # Group suggestions by source item (title or URL)
         grouped = {}
         for suggestion in suggestions:
-            # Get source identifier from suggestion
             source_title = suggestion.get('source_title', 'Unknown')
             source_url = suggestion.get('source_url', '')
             
@@ -156,7 +194,6 @@ class EmailSender:
             source_url = data['url']
             source_suggestions = data['suggestions']
             
-            # Build posts HTML for this source
             posts_for_source = []
             for suggestion in source_suggestions:
                 platform = suggestion.get('platform', 'unknown')
@@ -179,18 +216,29 @@ class EmailSender:
                 """
                 posts_for_source.append(post_html)
             
-            # Add source title section
             source_html = f"""
             <div style="margin-bottom: 25px;">
-                <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">
-                    {source_title}
-                </h3>
-                {'<a href="' + source_url + '" style="color: #1a73e8; font-size: 12px;">' + source_url + '</a>' if source_url else ''}
                 <div style="margin-top: 10px;">
                     {''.join(posts_for_source)}
                 </div>
             </div>
             """
+            posts_for_source.clear()  # Reset for next group
+            
+            if not original_items:
+                # Show source title only when there's no original item to pair with
+                source_html = f"""
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">
+                        {source_title}
+                    </h3>
+                    {'<a href="' + source_url + '" style="color: #1a73e8; font-size: 12px;">' + source_url + '</a>' if source_url else ''}
+                    <div style="margin-top: 10px;">
+                        {''.join(posts_for_source)}
+                    </div>
+                </div>
+                """
+            
             posts_html.append(source_html)
         
         return f"""
@@ -234,7 +282,46 @@ class EmailSender:
         
         return '\n'.join(lines)
     
-    def send_digest(self, to_email: str = None, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None) -> bool:
+    def _format_repost_html(self, repost_data: Dict) -> str:
+        suggestions = repost_data.get('suggestions', [])
+        
+        items_html = ""
+        for s in suggestions:
+            tweet_text = s.get('text', '')
+            reason = s.get('reason', '')
+            items_html += f"""
+            <div style="background-color: #fef3e2; border-left: 4px solid #f57c00; border-radius: 0 6px 6px 0; padding: 12px; margin: 10px 0;">
+                <div style="font-size: 13px; line-height: 1.5; margin-bottom: 8px;">{tweet_text}</div>
+                <div style="font-size: 12px; color: #666; font-style: italic;">💡 {reason}</div>
+            </div>
+            """
+        
+        if not items_html:
+            items_html = '<p style="color: #888; font-size: 13px;">No repost suggestions available.</p>'
+        
+        return f"""
+        <div class="section">
+            <h2 class="section-title">🔄 Repost Suggestions</h2>
+            <p style="color: #666; margin-bottom: 15px;">Tweets worth reposting from your recent activity</p>
+            {items_html}
+        </div>
+        """
+    
+    def _format_repost_text(self, repost_data: Dict) -> str:
+        lines = [f"{'=' * 50}", "REPOST SUGGESTIONS", f"{'=' * 50}"]
+        
+        for s in repost_data.get('suggestions', []):
+            lines.extend([
+                f"\nTweet: {s.get('text', '')}",
+                f"  💡 {s.get('reason', '')}",
+            ])
+        
+        if not lines:
+            lines.append("No repost suggestions available.")
+        
+        return '\n'.join(lines)
+    
+    def send_digest(self, to_email: str = None, reddit_suggestions: List[Dict] = None, wordpress_suggestions: List[Dict] = None, twitter_suggestions: List[Dict] = None, reddit_items: List[Dict] = None, wordpress_items: List[Dict] = None, twitter_items: List[Dict] = None, repost_suggestions: Dict = None) -> bool:
         cfg = get_config()
         to_email = to_email or cfg.email.email_to
         
@@ -248,6 +335,7 @@ class EmailSender:
             reddit_items=reddit_items,
             wordpress_items=wordpress_items,
             twitter_items=twitter_items,
+            repost_suggestions=repost_suggestions,
         )
         
         subject = f"📱 Social Media Content Digest - {datetime.now().strftime('%Y-%m-%d')}"

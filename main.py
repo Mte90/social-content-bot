@@ -45,6 +45,7 @@ class SocialContentBot:
             'wordpress': [],
             'twitter': [],
         }
+        self.repost_suggestions: Dict = {}
     
     @property
     def reddit_client(self) -> RedditClient:
@@ -210,6 +211,9 @@ class SocialContentBot:
                         self.suggestions['twitter'].extend(result)
                     
                     progress.advance(task)
+            
+            console.print(f"\n[cyan]Analyzing tweets for repost suggestions...[/cyan]")
+            self.repost_suggestions = await self.content_generator.suggest_reposts_async(self.twitter_tweets)
         
         total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress']) + len(self.suggestions['twitter'])
         self.logger.info(f"Generated {total_suggestions} total suggestions")
@@ -279,6 +283,9 @@ class SocialContentBot:
                         console.print(f"[yellow]Warning: Could not generate suggestions for tweet: {e}[/yellow]")
                     
                     progress.advance(task)
+            
+            console.print(f"\n[cyan]Analyzing tweets for repost suggestions...[/cyan]")
+            self.repost_suggestions = self.content_generator.suggest_reposts(self.twitter_tweets)
         
         total_suggestions = len(self.suggestions['reddit']) + len(self.suggestions['wordpress']) + len(self.suggestions['twitter'])
         self.logger.info(f"Generated {total_suggestions} total suggestions")
@@ -312,6 +319,7 @@ class SocialContentBot:
                 reddit_items=reddit_items,
                 wordpress_items=wordpress_items,
                 twitter_items=twitter_items,
+                repost_suggestions=self.repost_suggestions,
             )
         except Exception as e:
             self.logger.error(f"Error sending email: {e}")
