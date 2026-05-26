@@ -142,8 +142,14 @@ class EmailSender:
     def _format_section_html(self, title: str, subtitle: str, suggestions: List[Dict], original_items: List[Dict] = None) -> str:
         posts_html = []
         
-        # Show original content (tweets, reddit posts, blog) when available
         if original_items:
+            suggestions_by_url = {}
+            for s in suggestions:
+                url = s.get('source_url', '')
+                if url not in suggestions_by_url:
+                    suggestions_by_url[url] = []
+                suggestions_by_url[url].append(s)
+            
             for item in original_items:
                 item_text = item.get('text', '')
                 if not item_text:
@@ -166,7 +172,7 @@ class EmailSender:
                         stats_parts.append(f'💬 {replies}')
                     stats_html = f'<div style="font-size: 12px; color: #888; margin: 5px 0;">{" | ".join(stats_parts)}</div>'
                 
-                source_html = f"""
+                item_block = f"""
                 <div style="margin-bottom: 25px;">
                     <div style="background-color: #f0f4f8; border: 1px solid #dde3e9; border-radius: 6px; padding: 12px; margin-bottom: 10px;">
                         <div style="font-size: 14px; margin-bottom: 5px;">{item_text}</div>
@@ -174,72 +180,68 @@ class EmailSender:
                         {'<a href="' + item_url + '" style="color: #1a73e8; font-size: 12px;">' + item_url + '</a>' if item_url else ''}
                     </div>
                 """
-                posts_html.append(source_html)
-        
-        # Group suggestions by source item (title or URL)
-        grouped = {}
-        for suggestion in suggestions:
-            source_title = suggestion.get('source_title', 'Unknown')
-            source_url = suggestion.get('source_url', '')
-            
-            if source_title not in grouped:
-                grouped[source_title] = {
-                    'url': source_url,
-                    'suggestions': []
-                }
-            grouped[source_title]['suggestions'].append(suggestion)
-        
-        # Format each group
-        for source_title, data in grouped.items():
-            source_url = data['url']
-            source_suggestions = data['suggestions']
-            
-            posts_for_source = []
-            for suggestion in source_suggestions:
-                platform = suggestion.get('platform', 'unknown')
-                platform_class = 'twitter' if platform == 'twitter' else 'linkedin'
-                platform_emoji = '🐦' if platform == 'twitter' else '💼'
                 
-                hashtags = suggestion.get('hashtags', [])
-                hashtag_str = ' '.join(f'#{tag}' for tag in hashtags)
+                # Suggestions for this specific item
+                related = suggestions_by_url.get(item_url, [])
+                if related:
+                    item_block += '<div style="margin-top: 10px;">'
+                    for suggestion in related:
+                        platform = suggestion.get('platform', 'unknown')
+                        platform_class = 'twitter' if platform == 'twitter' else 'linkedin'
+                        platform_emoji = '🐦' if platform == 'twitter' else '💼'
+                        hashtags = suggestion.get('hashtags', [])
+                        hashtag_str = ' '.join(f'#{tag}' for tag in hashtags)
+                        item_block += f"""
+                        <div class="post-suggestion">
+                            <span class="platform-badge {platform_class}">{platform_emoji} {platform.upper()}</span>
+                            <div class="post-content">{suggestion.get('content', '')}</div>
+                            <div class="hashtags">{hashtag_str}</div>
+                            <div class="tip">
+                                <strong>Tone:</strong> {suggestion.get('tone', 'N/A')}<br>
+                                <strong>Tip:</strong> {suggestion.get('engagement_tip', 'N/A')}
+                            </div>
+                        </div>
+                        """
+                    item_block += '</div>'
                 
-                post_html = f"""
-                <div class="post-suggestion">
-                    <span class="platform-badge {platform_class}">{platform_emoji} {platform.upper()}</span>
-                    <div class="post-content">{suggestion.get('content', '')}</div>
-                    <div class="hashtags">{hashtag_str}</div>
-                    <div class="tip">
-                        <strong>Tone:</strong> {suggestion.get('tone', 'N/A')}<br>
-                        <strong>Tip:</strong> {suggestion.get('engagement_tip', 'N/A')}
+                item_block += '</div>'
+                posts_html.append(item_block)
+        else:
+            # No original items — group suggestions by source
+            grouped = {}
+            for suggestion in suggestions:
+                source_title = suggestion.get('source_title', 'Unknown')
+                if source_title not in grouped:
+                    grouped[source_title] = {'url': suggestion.get('source_url', ''), 'suggestions': []}
+                grouped[source_title]['suggestions'].append(suggestion)
+            
+            for source_title, data in grouped.items():
+                source_url = data['url']
+                posts_for_source = ''
+                for suggestion in data['suggestions']:
+                    platform = suggestion.get('platform', 'unknown')
+                    platform_class = 'twitter' if platform == 'twitter' else 'linkedin'
+                    platform_emoji = '🐦' if platform == 'twitter' else '💼'
+                    hashtags = suggestion.get('hashtags', [])
+                    hashtag_str = ' '.join(f'#{tag}' for tag in hashtags)
+                    posts_for_source += f"""
+                    <div class="post-suggestion">
+                        <span class="platform-badge {platform_class}">{platform_emoji} {platform.upper()}</span>
+                        <div class="post-content">{suggestion.get('content', '')}</div>
+                        <div class="hashtags">{hashtag_str}</div>
+                        <div class="tip">
+                            <strong>Tone:</strong> {suggestion.get('tone', 'N/A')}<br>
+                            <strong>Tip:</strong> {suggestion.get('engagement_tip', 'N/A')}
+                        </div>
                     </div>
-                </div>
-                """
-                posts_for_source.append(post_html)
-            
-            source_html = f"""
-            <div style="margin-bottom: 25px;">
-                <div style="margin-top: 10px;">
-                    {''.join(posts_for_source)}
-                </div>
-            </div>
-            """
-            posts_for_source.clear()  # Reset for next group
-            
-            if not original_items:
-                # Show source title only when there's no original item to pair with
-                source_html = f"""
+                    """
+                posts_html.append(f"""
                 <div style="margin-bottom: 25px;">
-                    <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">
-                        {source_title}
-                    </h3>
+                    <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">{source_title}</h3>
                     {'<a href="' + source_url + '" style="color: #1a73e8; font-size: 12px;">' + source_url + '</a>' if source_url else ''}
-                    <div style="margin-top: 10px;">
-                        {''.join(posts_for_source)}
-                    </div>
+                    <div style="margin-top: 10px;">{posts_for_source}</div>
                 </div>
-                """
-            
-            posts_html.append(source_html)
+                """)
         
         return f"""
         <div class="section">

@@ -43,11 +43,7 @@ class TwitterClient:
         if self._scweet is None:
             from Scweet.client import Scweet
             
-            # Initialize with auth_token (preferred) or cookies_file
-            kwargs = {
-                "headless": True,
-                "disable_images": True,
-            }
+            kwargs = {}
             
             if self.proxy:
                 kwargs["proxy"] = self.proxy

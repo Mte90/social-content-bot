@@ -111,9 +111,15 @@ class SocialContentBot:
             console.print("[yellow]Twitter not configured, skipping[/yellow]")
             return []
         
+        handle = self.config.twitter.username
+        if not handle:
+            console.print("[red]✗ TWITTER_USERNAME not set. Add it to .env (your Twitter handle without @)[/red]")
+            self.logger.warning("TWITTER_USERNAME not configured")
+            return []
+        
         try:
             tweets = self.twitter_client.get_profile_tweets(
-                handle=self.config.twitter.username,
+                handle=handle,
                 limit=self.config.bot.twitter_alternatives * 3,
                 max_age_days=self.config.bot.twitter_tweets_days,
             )
