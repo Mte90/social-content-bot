@@ -83,11 +83,12 @@ class TwitterClient:
     def get_user_information(self, handle: str) -> Optional[Dict]:
         try:
             self.logger.info(f"Fetching user info for: {handle}")
-            infos = self.scweet.get_user_information(
-                handles=[handle],
-                login=True,
+            infos = self.scweet.get_user_info(
+                users=[handle],
             )
-            return infos.get(handle) if infos else None
+            if infos and len(infos) > 0:
+                return infos[0]
+            return None
         except Exception as e:
             self.logger.error(f"Error fetching user information: {e}")
             console.print(f"[red]✗[/red] Error fetching user information: {e}")
@@ -97,12 +98,10 @@ class TwitterClient:
         try:
             self.logger.info(f"Fetching followers for: {handle}")
             followers = self.scweet.get_followers(
-                handle=handle,
-                login=True,
-                stay_logged_in=True,
-                sleep=1,
+                users=[handle],
+                limit=limit,
             )
-            return followers[:limit] if followers else []
+            return [f.get('username', '') for f in followers if f.get('username')]
         except Exception as e:
             self.logger.error(f"Error fetching followers: {e}")
             console.print(f"[red]✗[/red] Error fetching followers: {e}")
@@ -112,12 +111,10 @@ class TwitterClient:
         try:
             self.logger.info(f"Fetching following for: {handle}")
             following = self.scweet.get_following(
-                handle=handle,
-                login=True,
-                stay_logged_in=True,
-                sleep=1,
+                users=[handle],
+                limit=limit,
             )
-            return following[:limit] if following else []
+            return [f.get('username', '') for f in following if f.get('username')]
         except Exception as e:
             self.logger.error(f"Error fetching following: {e}")
             console.print(f"[red]✗[/red] Error fetching following: {e}")
@@ -128,28 +125,38 @@ class TwitterClient:
         try:
             self.logger.info(f"Fetching tweets for: {handle} (max age: {max_age_days} days)")
             tweets = self.scweet.get_profile_tweets(
-                handle=handle,
-                login=True,
-                stay_logged_in=True,
-                sleep=1,
+                users=[handle],
+                limit=limit,
             )
             
+            # Normalize tweet fields (new Scweet uses different keys)
+            normalized = []
+            for tweet in tweets:
+                normalized.append({
+                    'text': tweet.get('text', ''),
+                    'url': tweet.get('tweet_url', ''),
+                    'id': tweet.get('tweet_id', ''),
+                    'likes': tweet.get('likes', 0),
+                    'retweets': tweet.get('retweets', 0),
+                    'replies': tweet.get('comments', 0),
+                    'timestamp': tweet.get('timestamp', ''),
+                    'user_screen_name': tweet.get('user', {}).get('screen_name', handle),
+                })
+            
             # Filter tweets by age
-            if tweets:
+            if normalized:
                 cutoff_date = datetime.now() - timedelta(days=max_age_days)
                 filtered_tweets = []
-                for tweet in tweets[:limit]:
-                    # Check if tweet has created_at timestamp
-                    if 'created_at' in tweet:
+                for tweet in normalized[:limit]:
+                    ts = tweet.get('timestamp', '')
+                    if ts:
                         try:
-                            tweet_date = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+                            tweet_date = datetime.strptime(ts, '%a %b %d %H:%M:%S %z %Y')
                             if tweet_date >= cutoff_date:
                                 filtered_tweets.append(tweet)
                         except (ValueError, TypeError):
-                            # If date parsing fails, include the tweet anyway
                             filtered_tweets.append(tweet)
                     else:
-                        # If no date field, include the tweet
                         filtered_tweets.append(tweet)
                 
                 return filtered_tweets
