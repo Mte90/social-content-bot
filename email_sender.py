@@ -154,7 +154,7 @@ class EmailSender:
                 item_text = item.get('text', '')
                 if not item_text:
                     item_text = item.get('title', item.get('content', ''))
-                item_url = item.get('url', '')
+                item_url = item.get('permalink', item.get('url', ''))
                 
                 # Engagement stats for tweets
                 likes = item.get('likes')
